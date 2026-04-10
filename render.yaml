@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: smart-home-backend
+    plan: free
+    runtime: node
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  - type: static
+    name: smart-home-frontend
+    plan: free
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: client/dist
+    routes:
+      - path: /api
+        service: smart-home-backend
