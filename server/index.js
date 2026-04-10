@@ -170,6 +170,24 @@ async function syncControlsFromFirebase() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// HELPER: Listen for real-time control changes from Firebase
+// ─────────────────────────────────────────────────────────────────────────────
+function listenToControlsFromFirebase() {
+  if (!db) return;
+  try {
+    db.ref('controls').on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        console.log('🔄 Controls updated from Firebase:', data);
+        latestControls = { ...latestControls, ...data };
+      }
+    });
+  } catch (err) {
+    console.warn('Could not set up controls listener:', err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Translate Firebase controls → Arduino command string
 //
 //  Arduino's listenForWebCommands() uses indexOf(), so we can send multiple
@@ -192,9 +210,17 @@ function buildCommandString(controls) {
   }
 
   // 3. Door servo → DOOR_OPEN / DOOR_CLOSE
-  cmds.push(controls.door === 'OPEN' ? 'DOOR_OPEN' : 'DOOR_CLOSE');
+  const doorCmd = controls.door === 'OPEN' ? 'DOOR_OPEN' : 'DOOR_CLOSE';
+  cmds.push(doorCmd);
 
-  return cmds.join('|');
+  const cmdString = cmds.join('|');
+  if (controls.door !== 'CLOSED' && controls.door !== 'OPEN') {
+    console.warn(
+      `⚠️ Invalid door state: ${controls.door}, sending: ${doorCmd}`
+    );
+  }
+
+  return cmdString;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -469,6 +495,9 @@ async function sendWhatsAppAlerts(gasValue) {
   if (db) {
     console.log('📍 Database object exists, initializing...');
     await initializeDatabase();
+    // Set up real-time listening for control changes
+    listenToControlsFromFirebase();
+    console.log('🔊 Listening for real-time control changes from Firebase');
   } else {
     console.log('⚠️ Database object is null, skipping initialization');
   }

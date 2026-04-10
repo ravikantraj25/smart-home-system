@@ -22,25 +22,63 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 function BottomNav() {
   const location = useLocation();
   const items = [
-    { path: '/', label: 'Monitor', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-      </svg>
-    )},
-    { path: '/controls', label: 'Controls', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
-      </svg>
-    )},
-    { path: '/voice', label: 'Voice', icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
-        <path d="M19 10v2a7 7 0 01-14 0v-2"/>
-        <line x1="12" y1="19" x2="12" y2="23"/>
-      </svg>
-    )},
+    {
+      path: '/',
+      label: 'Monitor',
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      ),
+    },
+    {
+      path: '/controls',
+      label: 'Controls',
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14" />
+        </svg>
+      ),
+    },
+    {
+      path: '/voice',
+      label: 'Voice',
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+          <path d="M19 10v2a7 7 0 01-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="23" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -64,11 +102,18 @@ function BottomNav() {
               <motion.div
                 layoutId="bottomNavActive"
                 className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
-                style={{ background: 'linear-gradient(90deg, #00d4ff, #a855f7)' }}
+                style={{
+                  background: 'linear-gradient(90deg, #00d4ff, #a855f7)',
+                }}
               />
             )}
-            <span style={{ color: isActive ? '#00d4ff' : '#6b7280' }}>{item.icon}</span>
-            <span className="text-[10px] font-medium" style={{ color: isActive ? '#ffffff' : '#6b7280' }}>
+            <span style={{ color: isActive ? '#00d4ff' : '#6b7280' }}>
+              {item.icon}
+            </span>
+            <span
+              className="text-[10px] font-medium"
+              style={{ color: isActive ? '#ffffff' : '#6b7280' }}
+            >
               {item.label}
             </span>
           </NavLink>
@@ -86,7 +131,12 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [sensors, setSensors] = useState({ waterLevel: 0, gas: 0, current: 0 });
-  const [controls, setControls] = useState({ relay1: 'OFF', relay2Mode: 'AUTO', motor: 'OFF', door: 'CLOSED' });
+  const [controls, setControls] = useState({
+    relay1: 'OFF',
+    relay2Mode: 'AUTO',
+    motor: 'OFF',
+    door: 'CLOSED',
+  });
   const [alertSent, setAlertSent] = useState(false);
 
   useEffect(() => {
@@ -106,9 +156,16 @@ export default function App() {
       setLastUpdated(new Date().toLocaleTimeString());
     });
     const unsubControls = onControlData((data) => setControls(data));
-    const unsubConnection = onConnectionStatus((connected) => setIsConnected(connected));
+    const unsubConnection = onConnectionStatus((connected) =>
+      setIsConnected(connected)
+    );
     const loadingTimeout = setTimeout(() => setLoading(false), 5000);
-    return () => { unsubSensors(); unsubControls(); unsubConnection(); clearTimeout(loadingTimeout); };
+    return () => {
+      unsubSensors();
+      unsubControls();
+      unsubConnection();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   // Alert state is driven by sensor data — server handles WhatsApp alerts
@@ -124,10 +181,35 @@ export default function App() {
     }
   }, [sensors.gas]);
 
-  const handleRelay1Toggle = useCallback(async (v) => { try { await setRelay1(v); } catch(e) {} }, []);
-  const handleRelay2ModeChange = useCallback(async (v) => { try { await setRelay2Mode(v); } catch(e) {} }, []);
-  const handleMotorToggle = useCallback(async (v) => { try { await setMotor(v); } catch(e) {} }, []);
-  const handleDoorChange = useCallback(async (v) => { try { await setDoor(v); } catch(e) {} }, []);
+  const handleRelay1Toggle = useCallback(async (v) => {
+    try {
+      await setRelay1(v);
+    } catch (e) {
+      console.error('Relay1 error:', e);
+    }
+  }, []);
+  const handleRelay2ModeChange = useCallback(async (v) => {
+    try {
+      await setRelay2Mode(v);
+    } catch (e) {
+      console.error('Relay2 error:', e);
+    }
+  }, []);
+  const handleMotorToggle = useCallback(async (v) => {
+    try {
+      await setMotor(v);
+    } catch (e) {
+      console.error('Motor error:', e);
+    }
+  }, []);
+  const handleDoorChange = useCallback(async (v) => {
+    try {
+      console.log('🚪 Door change:', v);
+      await setDoor(v);
+    } catch (e) {
+      console.error('🚪 Door error:', e);
+    }
+  }, []);
 
   const handleVoiceCommand = useCallback(async (action) => {
     if (action.type === 'relay1') await setRelay1(action.value);
@@ -137,23 +219,38 @@ export default function App() {
 
   const pageVariants = {
     initial: { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.3, ease: 'easeOut' },
+    },
     exit: { opacity: 0, y: -8, transition: { duration: 0.2 } },
   };
 
   return (
-    <div className={`flex h-screen overflow-hidden ${darkMode ? '' : 'light-mode'}`}
+    <div
+      className={`flex h-screen overflow-hidden ${darkMode ? '' : 'light-mode'}`}
       style={{ background: darkMode ? '#0a0a0f' : '#f0f2f5' }}
     >
       {/* Animated Background Orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <motion.div className="absolute w-80 h-80 rounded-full blur-[100px] opacity-[0.12]"
-          style={{ background: 'radial-gradient(circle, #00d4ff, transparent)', top: '5%', left: '15%' }}
+        <motion.div
+          className="absolute w-80 h-80 rounded-full blur-[100px] opacity-[0.12]"
+          style={{
+            background: 'radial-gradient(circle, #00d4ff, transparent)',
+            top: '5%',
+            left: '15%',
+          }}
           animate={{ x: [0, 40, -20, 0], y: [0, -20, 40, 0] }}
           transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <motion.div className="absolute w-80 h-80 rounded-full blur-[100px] opacity-[0.1]"
-          style={{ background: 'radial-gradient(circle, #a855f7, transparent)', bottom: '10%', right: '5%' }}
+        <motion.div
+          className="absolute w-80 h-80 rounded-full blur-[100px] opacity-[0.1]"
+          style={{
+            background: 'radial-gradient(circle, #a855f7, transparent)',
+            bottom: '10%',
+            right: '5%',
+          }}
           animate={{ x: [0, -30, 15, 0], y: [0, 30, -15, 0] }}
           transition={{ duration: 25, repeat: Infinity, ease: 'easeInOut' }}
         />
@@ -183,10 +280,18 @@ export default function App() {
               onClick={() => setSidebarOpen(true)}
               whileTap={{ scale: 0.92 }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </motion.button>
             <div className="flex-1 min-w-0">
@@ -207,33 +312,60 @@ export default function App() {
 
           <AnimatePresence mode="wait">
             <Routes>
-              <Route path="/" element={
-                <motion.div key="dashboard" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                  <Dashboard sensors={sensors} loading={loading} />
-                </motion.div>
-              } />
-              <Route path="/controls" element={
-                <motion.div key="controls" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                  <Controls
-                    controls={controls}
-                    onToggleRelay1={handleRelay1Toggle}
-                    onModeChange={handleRelay2ModeChange}
-                    onMotorToggle={handleMotorToggle}
-                    onDoorChange={handleDoorChange}
-                    loading={loading}
-                  />
-                </motion.div>
-              } />
-              <Route path="/voice" element={
-                <motion.div key="voice" variants={pageVariants} initial="initial" animate="animate" exit="exit">
-                  <VoiceAssistant
-                    onCommand={handleVoiceCommand}
-                    controls={controls}
-                    sensors={sensors}
-                    alertSent={alertSent}
-                  />
-                </motion.div>
-              } />
+              <Route
+                path="/"
+                element={
+                  <motion.div
+                    key="dashboard"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <Dashboard sensors={sensors} loading={loading} />
+                  </motion.div>
+                }
+              />
+              <Route
+                path="/controls"
+                element={
+                  <motion.div
+                    key="controls"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <Controls
+                      controls={controls}
+                      onToggleRelay1={handleRelay1Toggle}
+                      onModeChange={handleRelay2ModeChange}
+                      onMotorToggle={handleMotorToggle}
+                      onDoorChange={handleDoorChange}
+                      loading={loading}
+                    />
+                  </motion.div>
+                }
+              />
+              <Route
+                path="/voice"
+                element={
+                  <motion.div
+                    key="voice"
+                    variants={pageVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <VoiceAssistant
+                      onCommand={handleVoiceCommand}
+                      controls={controls}
+                      sensors={sensors}
+                      alertSent={alertSent}
+                    />
+                  </motion.div>
+                }
+              />
             </Routes>
           </AnimatePresence>
         </div>

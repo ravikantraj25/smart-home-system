@@ -1,17 +1,29 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, set, get } from 'firebase/database';
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics } from 'firebase/analytics';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBe3jIeTWBxnCBGaR4WbiZG0Du-PPfypZM",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "smart-home-automation-b184d.firebaseapp.com",
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://smart-home-automation-b184d-default-rtdb.firebaseio.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "smart-home-automation-b184d",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "smart-home-automation-b184d.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "640307774492",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:640307774492:web:e4121b430325703fb3cbd9",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-2NTCC8BS2L"
+  apiKey:
+    import.meta.env.VITE_FIREBASE_API_KEY ||
+    'AIzaSyBe3jIeTWBxnCBGaR4WbiZG0Du-PPfypZM',
+  authDomain:
+    import.meta.env.VITE_FIREBASE_AUTH_DOMAIN ||
+    'smart-home-automation-b184d.firebaseapp.com',
+  databaseURL:
+    import.meta.env.VITE_FIREBASE_DATABASE_URL ||
+    'https://smart-home-automation-b184d-default-rtdb.firebaseio.com',
+  projectId:
+    import.meta.env.VITE_FIREBASE_PROJECT_ID || 'smart-home-automation-b184d',
+  storageBucket:
+    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET ||
+    'smart-home-automation-b184d.firebasestorage.app',
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '640307774492',
+  appId:
+    import.meta.env.VITE_FIREBASE_APP_ID ||
+    '1:640307774492:web:e4121b430325703fb3cbd9',
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-2NTCC8BS2L',
 };
 
 // Initialize Firebase, Analytics, and Realtime Database
@@ -47,8 +59,15 @@ export const onConnectionStatus = (callback) => {
 
 // Control update helpers (These send commands to the Arduino)
 export const updateControl = async (path, value) => {
-  const controlRef = ref(database, `controls/${path}`);
-  await set(controlRef, value);
+  try {
+    const controlRef = ref(database, `controls/${path}`);
+    console.log(`📝 Updating controls/${path} =`, value);
+    await set(controlRef, value);
+    console.log(`✅ controls/${path} updated successfully`);
+  } catch (error) {
+    console.error(`❌ Error updating controls/${path}:`, error);
+    throw error;
+  }
 };
 
 // Specific component controls
