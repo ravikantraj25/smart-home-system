@@ -1,0 +1,23 @@
+Firebase Realtime Database Rules
+==================================
+
+Copy and paste this in Firebase Console → Realtime Database → Rules tab:
+
+{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}
+
+WARNING: These rules allow ANYONE to read/write to your database.
+Use only for TESTING/DEVELOPMENT.
+
+For PRODUCTION, use proper authentication rules.
+
+After pasting:
+1. Click "Publish" 
+2. Confirm the warning
+3. Refresh your frontend application
+4. Data should now appear in Firebase Console
+
