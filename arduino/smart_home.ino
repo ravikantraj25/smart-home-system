@@ -33,9 +33,9 @@ const int btRxPin = 12; // Arduino RX ← HC-05 TX
 const int gasPin = A0;
 const int currentPin = A1;
 
-// ================= SERVER =================
-const char *SERVER_HOST = "192.168.0.174";
-const int SERVER_PORT = 3001;
+// ================= SERVER (Cloud - Render) =================
+const char *SERVER_HOST = "smart-home-system-5jfa.onrender.com";
+const int SERVER_PORT = 443; // HTTPS/SSL
 
 // ================= WIFI CREDENTIALS =================
 const char *WIFI_SSID = "Aryan PG 1st F";
@@ -76,7 +76,7 @@ unsigned long prevWeb = 0;
 unsigned long prevWifiCheck = 0;
 
 const long sensorInterval = 2000;
-const long webInterval = 2000;     // Send data & receive commands every 2s (was 5s)
+const long webInterval = 2000; // Send data & receive commands every 2s (was 5s)
 const long wifiCheckInterval = 15000;
 
 // Command buffers
@@ -142,8 +142,8 @@ void setup() {
 
   doorServo.attach(servoPin);
   doorServo.write(0);
-  delay(500);             // Let servo reach position
-  doorServo.detach();     // Detach to prevent jitter
+  delay(500);         // Let servo reach position
+  doorServo.detach(); // Detach to prevent jitter
 
   Serial.println(F("System Booting..."));
   Serial.println(F("ESP-01 on pins 2(RX)/3(TX), HC-05 on pins 12(RX)/11(TX)"));
@@ -477,6 +477,14 @@ void connectWiFi() {
     dbg(F("Warning: CIPMUX command failed."));
   }
   flushESP();
+
+  // Configure SSL buffer size (needed for HTTPS to Render)
+  listenESP();
+  espSerial.println(F("AT+CIPSSLSIZE=4096"));
+  if (!waitForResponse("OK", 2000)) {
+    dbg(F("Warning: CIPSSLSIZE not supported."));
+  }
+  flushESP();
 }
 
 // ================= WIFI HEALTH CHECK =================
@@ -526,13 +534,13 @@ void sendDataToServer() {
   delay(300);
   flushESP();
 
-  // Open TCP connection
-  snprintf(atCmd, sizeof(atCmd), "AT+CIPSTART=\"TCP\",\"%s\",%d", SERVER_HOST,
+  // Open SSL connection (HTTPS required for Render)
+  snprintf(atCmd, sizeof(atCmd), "AT+CIPSTART=\"SSL\",\"%s\",%d", SERVER_HOST,
            SERVER_PORT);
   espSerial.println(atCmd);
 
-  if (!waitForResponse("OK", 5000)) {
-    dbg(F("TCP connect failed."));
+  if (!waitForResponse("OK", 10000)) { // SSL handshake takes longer
+    dbg(F("SSL connect failed."));
     listenESP();
     espSerial.println(F("AT+CIPCLOSE"));
     delay(200);
@@ -582,10 +590,10 @@ void readServerResponse() {
   // Phase tracking
   int phase = 0;
   // "+IPD," matcher
-  const char* IPD_MARKER = "+IPD,";
+  const char *IPD_MARKER = "+IPD,";
   int ipdIdx = 0;
   // \r\n\r\n matcher for HTTP header end
-  int crlfState = 0;  // 0=none, 1=\r, 2=\r\n, 3=\r\n\r
+  int crlfState = 0; // 0=none, 1=\r, 2=\r\n, 3=\r\n\r
 
   char body[80];
   int bodyLen = 0;
@@ -603,56 +611,61 @@ void readServerResponse() {
       gotData = true;
 
       switch (phase) {
-        case 0:
-          // Phase 0: Look for "+IPD," marker (skip all ESP noise)
-          if (c == IPD_MARKER[ipdIdx]) {
-            ipdIdx++;
-            if (ipdIdx == 5) {  // Found "+IPD,"
-              phase = 1;
-            }
-          } else {
-            ipdIdx = (c == '+') ? 1 : 0;
+      case 0:
+        // Phase 0: Look for "+IPD," marker (skip all ESP noise)
+        if (c == IPD_MARKER[ipdIdx]) {
+          ipdIdx++;
+          if (ipdIdx == 5) { // Found "+IPD,"
+            phase = 1;
           }
-          break;
+        } else {
+          ipdIdx = (c == '+') ? 1 : 0;
+        }
+        break;
 
-        case 1:
-          // Phase 1: Skip byte count, wait for ":"
-          if (c == ':') {
-            phase = 2;  // Now we're in the HTTP response
+      case 1:
+        // Phase 1: Skip byte count, wait for ":"
+        if (c == ':') {
+          phase = 2; // Now we're in the HTTP response
+          crlfState = 0;
+        }
+        break;
+
+      case 2:
+        // Phase 2: Inside HTTP response — find \r\n\r\n (end of headers)
+        if (c == '\r') {
+          crlfState = (crlfState == 2) ? 3 : 1;
+        } else if (c == '\n') {
+          if (crlfState == 1)
+            crlfState = 2; // got \r\n
+          else if (crlfState == 3) {
+            phase = 3;
+          } // got \r\n\r\n → body!
+          else
             crlfState = 0;
-          }
-          break;
+        } else {
+          crlfState = 0;
+        }
+        break;
 
-        case 2:
-          // Phase 2: Inside HTTP response — find \r\n\r\n (end of headers)
-          if (c == '\r') {
-            crlfState = (crlfState == 2) ? 3 : 1;
-          } else if (c == '\n') {
-            if (crlfState == 1) crlfState = 2;       // got \r\n
-            else if (crlfState == 3) { phase = 3; }  // got \r\n\r\n → body!
-            else crlfState = 0;
-          } else {
-            crlfState = 0;
-          }
-          break;
-
-        case 3:
-          // Phase 3: Capture body bytes
-          if (c == '\r' || c == '\n') {
-            // Body line ended — we're done
-            goto done;  // Break out of both loops
-          }
-          if (bodyLen < 79 && c >= 32 && c <= 126) {
-            body[bodyLen++] = c;
-          }
-          break;
+      case 3:
+        // Phase 3: Capture body bytes
+        if (c == '\r' || c == '\n') {
+          // Body line ended — we're done
+          goto done; // Break out of both loops
+        }
+        if (bodyLen < 79 && c >= 32 && c <= 126) {
+          body[bodyLen++] = c;
+        }
+        break;
       }
     }
 
     // If we captured body and no more data, exit
     if (phase == 3 && bodyLen > 0 && !espSerial.available()) {
       delay(30);
-      if (!espSerial.available()) break;
+      if (!espSerial.available())
+        break;
     }
 
     if (gotData && (millis() - lastDataTime > 500)) {
@@ -681,16 +694,20 @@ done:
   }
 
   // Look for command keywords in body
-  char* cmdPtr = NULL;
-  char* p;
+  char *cmdPtr = NULL;
+  char *p;
   p = strstr(body, "LED_");
-  if (p && (!cmdPtr || p < cmdPtr)) cmdPtr = p;
+  if (p && (!cmdPtr || p < cmdPtr))
+    cmdPtr = p;
   p = strstr(body, "PUMP_");
-  if (p && (!cmdPtr || p < cmdPtr)) cmdPtr = p;
+  if (p && (!cmdPtr || p < cmdPtr))
+    cmdPtr = p;
   p = strstr(body, "DOOR_");
-  if (p && (!cmdPtr || p < cmdPtr)) cmdPtr = p;
+  if (p && (!cmdPtr || p < cmdPtr))
+    cmdPtr = p;
   p = strstr(body, "BUZZER_");
-  if (p && (!cmdPtr || p < cmdPtr)) cmdPtr = p;
+  if (p && (!cmdPtr || p < cmdPtr))
+    cmdPtr = p;
 
   if (cmdPtr) {
     webCommand = cmdPtr;
@@ -730,16 +747,16 @@ void processCommands() {
     doorServo.write(90);
     isDoorOpen = true;
     dbg(F("Door OPEN"));
-    delay(500);           // Give servo time to reach position
-    doorServo.detach();   // Detach to stop jitter/buzzing
+    delay(500);         // Give servo time to reach position
+    doorServo.detach(); // Detach to stop jitter/buzzing
   }
   if (webCommand.indexOf(F("DOOR_CLOSE")) >= 0 && isDoorOpen) {
     doorServo.attach(servoPin);
     doorServo.write(0);
     isDoorOpen = false;
     dbg(F("Door CLOSED"));
-    delay(500);           // Give servo time to reach position
-    doorServo.detach();   // Detach to stop jitter/buzzing
+    delay(500);         // Give servo time to reach position
+    doorServo.detach(); // Detach to stop jitter/buzzing
   }
 
   // --- PUMP MODE ---
@@ -773,16 +790,16 @@ void processCommands() {
   webCommand = "";
 }
 
-// ================= ESP HELPER: Wait for Response (LIGHTWEIGHT) =================
-// Reads from espSerial looking for target string.
-// Uses NO String class and NO Serial echo to maximize read speed.
-// SoftwareSerial only has a 64-byte ring buffer — we must read FAST.
-bool waitForResponse(const char* target, unsigned long timeoutMs) {
+// ================= ESP HELPER: Wait for Response (LIGHTWEIGHT)
+// ================= Reads from espSerial looking for target string. Uses NO
+// String class and NO Serial echo to maximize read speed. SoftwareSerial only
+// has a 64-byte ring buffer — we must read FAST.
+bool waitForResponse(const char *target, unsigned long timeoutMs) {
   listenESP();
 
   unsigned long start = millis();
   int targetLen = strlen(target);
-  int matchIdx = 0;  // How many chars of target we've matched so far
+  int matchIdx = 0; // How many chars of target we've matched so far
 
   while (millis() - start < timeoutMs) {
     while (espSerial.available()) {
