@@ -1,0 +1,207 @@
+/* Light Control Component Styles */
+
+.light-control-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.light-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.light-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+}
+
+.light-icon svg {
+  @apply transition-all duration-300;
+}
+
+.light-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.light-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.light-status {
+  @apply text-xs font-medium;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  @apply relative w-12 h-6 rounded-full flex items-center px-1 transition-all border-0 cursor-pointer shrink-0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toggle-switch.active {
+  background: rgba(251, 191, 36, 0.2);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.toggle-switch::after {
+  @apply w-5 h-5 rounded-full transition-all;
+  content: '';
+  background: rgba(255, 255, 255, 0.3);
+  order: -1;
+}
+
+.toggle-switch.active::after {
+  background: #fbbf24;
+  order: 0;
+}
+
+/* Timer Section */
+.light-timer-section {
+  @apply mb-4;
+}
+
+.light-section-label {
+  @apply text-[11px] text-gray-500 font-medium mb-2 uppercase tracking-wide;
+}
+
+.timer-buttons {
+  @apply flex gap-2 mb-3;
+}
+
+.timer-button {
+  @apply flex-1 py-2 rounded-lg text-xs font-semibold transition-all border cursor-pointer;
+}
+
+.countdown-display {
+  @apply flex items-center justify-between px-3 py-2 rounded-lg;
+}
+
+.countdown-label {
+  @apply text-xs text-gray-400;
+}
+
+.countdown-value {
+  @apply text-base font-bold font-mono text-neon-blue;
+}
+
+/* Clock Section */
+.light-clock-section {
+  @apply mt-5 pt-5 border-t border-gray-700 mb-4;
+}
+
+.clock-display {
+  @apply px-4 py-3 rounded-lg text-center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.clock-time {
+  @apply text-lg font-bold font-mono text-white;
+  display: block;
+}
+
+/* Schedule Section */
+.light-schedule-section {
+  @apply pt-4;
+}
+
+.schedule-header {
+  @apply flex items-center justify-between mb-3;
+}
+
+.schedule-toggle {
+  @apply text-xs font-bold px-2 py-1 rounded-lg border cursor-pointer transition-all;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #6b7280;
+}
+
+.schedule-toggle.active {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #a855f7;
+}
+
+.schedule-input {
+  @apply w-full px-3 py-2 rounded-lg text-xs font-mono;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.schedule-input:focus {
+  outline: none;
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.1);
+}
+
+.schedule-times {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.schedule-label {
+  font-size: 11px;
+  color: #d1d5db;
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 95px;
+}
+
+.schedule-row .schedule-input {
+  flex: 1;
+  max-width: 140px;
+}
+
+.schedule-summary {
+  font-size: 10px;
+  color: #a855f7;
+  background: rgba(168, 85, 247, 0.08);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: center;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .light-control-container {
+    @apply p-4;
+  }
+
+  .timer-button {
+    @apply text-[11px];
+  }
+
+  .schedule-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .schedule-label {
+    min-width: unset;
+    flex: 1;
+  }
+  .schedule-row .schedule-input {
+    max-width: 100%;
+    flex: 1;
+  }
+}
+

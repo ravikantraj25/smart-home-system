@@ -1,8 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import { getDatabase, ref, onValue, set, get } from 'firebase/database';
-import { getAnalytics } from 'firebase/analytics';
 
 // Firebase configuration from environment variables
+// ⚠️ SECURITY: These fallback keys are visible in client-side code.
+//    Ensure your Firebase Security Rules are properly configured to
+//    restrict unauthorized read/write access to your database.
+//    Prefer setting VITE_FIREBASE_* env vars in a .env file instead of using fallbacks.
 const firebaseConfig = {
   apiKey:
     import.meta.env.VITE_FIREBASE_API_KEY ||
@@ -28,7 +31,6 @@ const firebaseConfig = {
 
 // Initialize Firebase, Analytics, and Realtime Database
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 const database = getDatabase(app);
 
 // Database references for your Smart Home

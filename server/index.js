@@ -3,6 +3,16 @@ const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
 const twilio = require('twilio');
+const mongoose = require('mongoose');
+
+// ─── Route imports ───────────────────────────────────────────────────────────
+const authRoutes = require('./routes/auth');
+const energyRoutes = require('./routes/energy');
+const alertRoutes = require('./routes/alerts');
+
+// ─── Model imports ───────────────────────────────────────────────────────────
+const EnergyLog = require('./models/EnergyLog');
+const AlertHistory = require('./models/AlertHistory');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ARCHITECTURE OVERVIEW
@@ -69,14 +79,39 @@ const twilioClient =
 const TWILIO_WHATSAPP_FROM =
   process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
 
-const ALERT_NUMBERS = process.env.ALERT_NUMBERS
-  ? JSON.parse(process.env.ALERT_NUMBERS)
-  : ['+911234567890'];
+const TWILIO_PHONE_FROM =
+  process.env.TWILIO_PHONE_NUMBER || '+12296337232';
+
+// ─── Alert Recipients ──────────────────────────────────────────────────────
+// Recipient 1: Family Member / House Owner
+const ALERT_FAMILY = {
+  label: 'Family (House Owner)',
+  call: process.env.ALERT_FAMILY_CALL || '+918340286898',
+  whatsapp: process.env.ALERT_FAMILY_WHATSAPP || 'whatsapp:+918340286898',
+  sms: process.env.ALERT_FAMILY_SMS || '+918340286898',
+};
+
+// Recipient 2: Fire Extinguisher Office
+const ALERT_FIRE_OFFICE = {
+  label: 'Fire Extinguisher Office',
+  call: process.env.ALERT_FIRE_OFFICE_CALL || '+919508529221',
+  whatsapp: process.env.ALERT_FIRE_OFFICE_WHATSAPP || 'whatsapp:+919508529221',
+  sms: process.env.ALERT_FIRE_OFFICE_SMS || '+919508529221',
+};
+
+// Alert address — included in all messages for location context
+const ALERT_ADDRESS = process.env.ALERT_ADDRESS ||
+  'Flat 302, Sunrise Apartments, Sector 15, Patna, Bihar 800001, India';
+
 
 // ─── Fire / Gas Thresholds (match Arduino constants) ──────────────────────────
 const FIRE_THRESHOLD = parseInt(process.env.FIRE_THRESHOLD || '400'); // Arduino: FIRE_THRESHOLD
-const TANK_EMPTY_CM = parseInt(process.env.TANK_EMPTY_CM || '20'); // Arduino: TANK_EMPTY_CM
-const TANK_FULL_CM = parseInt(process.env.TANK_FULL_CM || '5'); // Arduino: TANK_FULL_CM
+
+// Tank thresholds — Arduino now sends water level as PERCENTAGE (0-100%)
+// Based on 8cm plastic glass: sensor on top, measures distance to water surface
+// Arduino calculates: waterLevel% = (8 - distanceCm) / 8 * 100
+const TANK_EMPTY_PERCENT = parseInt(process.env.TANK_EMPTY_PERCENT || '15');  // ≤15% = empty (pump ON)
+const TANK_FULL_PERCENT = parseInt(process.env.TANK_FULL_PERCENT || '90');    // ≥90% = full  (pump OFF)
 
 // ─── In-memory state ─────────────────────────────────────────────────────────
 const alertLog = [];
@@ -99,9 +134,15 @@ let latestControls = {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+app.disable('x-powered-by');  // Remove X-Powered-By header (saves bytes for Arduino)
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // ← fallback for form-encoded data
+
+// ─── Mount API Routes ────────────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/energy', energyRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Initialize Firebase database with default structure
@@ -209,19 +250,24 @@ function buildCommandString(controls) {
     cmds.push(controls.motor === 'ON' ? 'PUMP_ON' : 'PUMP_OFF');
   }
 
-  // 3. Door servo → DOOR_OPEN / DOOR_CLOSE
-  const doorCmd = controls.door === 'OPEN' ? 'DOOR_OPEN' : 'DOOR_CLOSE';
-  cmds.push(doorCmd);
+  // 3. Door servo → ONLY send DOOR_OPEN/DOOR_CLOSE when state CHANGES
+  //    Previously we sent DOOR_CLOSE on every response, which caused the
+  //    servo to constantly jitter as it tried to re-write position every 2s.
+  const currentDoor = controls.door === 'OPEN' ? 'OPEN' : 'CLOSED';
+  if (currentDoor !== buildCommandString._lastSentDoor) {
+    const doorCmd = currentDoor === 'OPEN' ? 'DOOR_OPEN' : 'DOOR_CLOSE';
+    cmds.push(doorCmd);
+    buildCommandString._lastSentDoor = currentDoor;
+    console.log(`🚪 Door state changed → sending ${doorCmd}`);
+  }
+  // If door state hasn't changed, we skip the door command entirely
+  // — servo stays where it is without jitter
 
   const cmdString = cmds.join('|');
-  if (controls.door !== 'CLOSED' && controls.door !== 'OPEN') {
-    console.warn(
-      `⚠️ Invalid door state: ${controls.door}, sending: ${doorCmd}`
-    );
-  }
-
   return cmdString;
 }
+// Initialize last sent door state (on startup, we send one DOOR_CLOSE)
+buildCommandString._lastSentDoor = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Convert raw ACS712 ADC value → current in Amps
@@ -244,7 +290,7 @@ app.get('/status', (req, res) => {
     timestamp: new Date().toISOString(),
     firebase: !!db,
     twilio: !!twilioClient,
-    thresholds: { FIRE_THRESHOLD, TANK_EMPTY_CM, TANK_FULL_CM },
+    thresholds: { FIRE_THRESHOLD, TANK_EMPTY_PERCENT, TANK_FULL_PERCENT },
     latestSensors,
     latestControls,
     totalAlerts: alertLog.length,
@@ -303,6 +349,18 @@ app.post('/sensor-data', async (req, res) => {
       await db.ref('sensors').set({ waterLevel, gas, current });
     }
 
+    // ── Log energy reading to MongoDB ────────────────────────────────────
+    if (mongoose.connection.readyState === 1) {
+      try {
+        await EnergyLog.logReading(
+          { waterLevel, gas, current },
+          latestControls
+        );
+      } catch (logErr) {
+        console.warn('⚠️ Energy log failed:', logErr.message);
+      }
+    }
+
     // ── Fire / Gas Alert Logic ────────────────────────────────────────────
     if (gas > FIRE_THRESHOLD) {
       const now = Date.now();
@@ -318,25 +376,48 @@ app.post('/sensor-data', async (req, res) => {
           current,
           timestamp: new Date().toISOString(),
           whatsappSent: false,
+          callSent: false,
         };
 
         if (twilioClient) {
           try {
-            const results = await sendWhatsAppAlerts(gas);
-            alertEntry.whatsappSent = true;
-            alertEntry.results = results;
+            const allResults = await sendAllEmergencyAlerts(gas);
+            alertEntry.whatsappSent = allResults.whatsapp.length > 0;
+            alertEntry.callSent = allResults.calls.length > 0;
+            alertEntry.whatsappResults = allResults.whatsapp;
+            alertEntry.callResult = allResults.calls;
+            alertEntry.smsResults = allResults.sms;
             console.log(
-              `📱 WhatsApp alerts sent to ${results.length} number(s)`
+              `📱 Alerts sent → Calls: ${allResults.calls.length}, WhatsApp: ${allResults.whatsapp.length}, SMS: ${allResults.sms.length}`
             );
           } catch (err) {
-            console.error('❌ WhatsApp send failed:', err.message);
+            console.error('❌ Emergency alerts failed:', err.message);
           }
         } else {
-          console.warn('⚠️  Twilio not configured — skipping WhatsApp alert');
+          console.warn('⚠️  Twilio not configured — skipping all alerts');
         }
 
         alertLog.push(alertEntry);
         if (db) await db.ref('alerts').push(alertEntry);
+
+        // Also save to MongoDB for persistent history
+        if (mongoose.connection.readyState === 1) {
+          try {
+            await AlertHistory.create({
+              type: alertEntry.type,
+              severity: 'critical',
+              gasValue: alertEntry.gasValue,
+              waterLevel: alertEntry.waterLevel,
+              currentAmps: alertEntry.current,
+              whatsappSent: alertEntry.whatsappSent,
+              callSent: alertEntry.callSent,
+              whatsappResults: alertEntry.whatsappResults || [],
+              callResult: alertEntry.callResult || null,
+            });
+          } catch (mongoErr) {
+            console.warn('⚠️ MongoDB alert save failed:', mongoErr.message);
+          }
+        }
       } else {
         const remainingSec = Math.round(
           (ALERT_COOLDOWN_MS - (Date.now() - lastAlertTime)) / 1000
@@ -350,10 +431,11 @@ app.post('/sensor-data', async (req, res) => {
     // ── Auto-pump logic mirror (for Firebase sync in auto mode) ───────────
     //  Arduino handles hardware directly, but we mirror the expected state
     //  to Firebase so the dashboard stays in sync
+    //  waterLevel is now a PERCENTAGE (0-100%): lower = emptier
     if (db && latestControls.relay2Mode === 'AUTO') {
       let autoMotorState = null;
-      if (waterLevel >= TANK_EMPTY_CM) autoMotorState = 'ON';
-      else if (waterLevel <= TANK_FULL_CM) autoMotorState = 'OFF';
+      if (waterLevel <= TANK_EMPTY_PERCENT) autoMotorState = 'ON';   // Tank nearly empty → pump ON
+      else if (waterLevel >= TANK_FULL_PERCENT) autoMotorState = 'OFF'; // Tank nearly full → pump OFF
 
       if (autoMotorState && autoMotorState !== latestControls.motor) {
         latestControls.motor = autoMotorState;
@@ -373,7 +455,10 @@ app.post('/sensor-data', async (req, res) => {
     console.log(`📤 Commands → Arduino: "${commandString}"`);
 
     // Return plain text — Arduino's webCommand string will contain it
+    // Set Content-Length explicitly to prevent chunked Transfer-Encoding
+    // (Arduino's HTTP parser can't handle chunked encoding)
     res.set('Content-Type', 'text/plain');
+    res.set('Content-Length', Buffer.byteLength(commandString));
     res.send(commandString);
   } catch (err) {
     console.error('❌ Error in /sensor-data:', err);
@@ -393,6 +478,7 @@ app.get('/commands', async (req, res) => {
   const commandString = buildCommandString(latestControls);
   console.log(`📤 [Poll] Commands: "${commandString}"`);
   res.set('Content-Type', 'text/plain');
+  res.set('Content-Length', Buffer.byteLength(commandString));
   res.send(commandString);
 });
 
@@ -410,24 +496,60 @@ app.post('/send-whatsapp', async (req, res) => {
       });
     }
 
-    const results = await sendWhatsAppAlerts(gasValue ?? latestSensors.gas);
+    const results = await sendAllEmergencyAlerts(gasValue ?? latestSensors.gas);
 
     const entry = {
       type: 'MANUAL_ALERT',
       gasValue: gasValue ?? latestSensors.gas,
       timestamp: new Date().toISOString(),
       whatsappSent: true,
+      callSent: true,
       results,
     };
     alertLog.push(entry);
     if (db) await db.ref('alerts').push(entry);
 
-    res.json({ success: true, alertsSent: results.length, results });
+    res.json({ success: true, results });
   } catch (err) {
     console.error('Error in /send-whatsapp:', err);
     res
       .status(500)
-      .json({ error: 'Failed to send WhatsApp alerts', details: err.message });
+      .json({ error: 'Failed to send alerts', details: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTE: POST /send-call  —  Manual phone call trigger (from dashboard)
+// ─────────────────────────────────────────────────────────────────────────────
+app.post('/send-call', async (req, res) => {
+  try {
+    const { gasValue } = req.body;
+
+    if (!twilioClient) {
+      return res.status(503).json({
+        error: 'Twilio not configured',
+        hint: 'Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER in .env',
+      });
+    }
+
+    const results = await sendAllEmergencyAlerts(gasValue ?? latestSensors.gas);
+
+    const entry = {
+      type: 'MANUAL_CALL',
+      gasValue: gasValue ?? latestSensors.gas,
+      timestamp: new Date().toISOString(),
+      callSent: true,
+      results,
+    };
+    alertLog.push(entry);
+    if (db) await db.ref('alerts').push(entry);
+
+    res.json({ success: true, results });
+  } catch (err) {
+    console.error('Error in /send-call:', err);
+    res
+      .status(500)
+      .json({ error: 'Failed to place emergency alerts', details: err.message });
   }
 });
 
@@ -442,59 +564,277 @@ app.get('/alerts', (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPER: Send WhatsApp to all configured numbers
+// MASTER ALERT: Send ALL emergency alerts (calls, WhatsApp, SMS) to BOTH
+//   1. Family Member / House Owner
+//   2. Fire Extinguisher Office
 // ─────────────────────────────────────────────────────────────────────────────
-async function sendWhatsAppAlerts(gasValue) {
+async function sendAllEmergencyAlerts(gasValue) {
   const timeStr = new Date().toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata',
     dateStyle: 'medium',
     timeStyle: 'medium',
   });
 
-  const body = [
-    '🚨 *EMERGENCY ALERT* 🚨',
-    '',
-    '⛽ *Gas / Fire Detected!*',
-    '',
-    `📍 *Location:* Home`,
-    `📊 *Gas Level:* ${gasValue} ADC (threshold: ${FIRE_THRESHOLD})`,
-    `⏱️ *Time:* ${timeStr}`,
-    '',
-    '⚠️ Please take action immediately!',
-    '🔥 Evacuate if needed. Check the IoT dashboard.',
-    '',
-    '_— Smart Home Alert System_',
-  ].join('\n');
+  const results = { calls: [], whatsapp: [], sms: [] };
 
-  const results = [];
-  for (const number of ALERT_NUMBERS) {
-    try {
-      const msg = await twilioClient.messages.create({
-        body,
-        from: TWILIO_WHATSAPP_FROM.startsWith('whatsapp:')
-          ? TWILIO_WHATSAPP_FROM
-          : `whatsapp:${TWILIO_WHATSAPP_FROM}`,
-        to: number.startsWith('whatsapp:') ? number : `whatsapp:${number}`,
-      });
-      console.log(`  ✅ Sent to ${number} → SID: ${msg.sid}`);
-      results.push({ number, status: 'sent', sid: msg.sid });
-    } catch (err) {
-      console.error(`  ❌ Failed to ${number}: ${err.message}`);
-      results.push({ number, status: 'failed', error: err.message });
-    }
+  // ── 1. PHONE CALLS ────────────────────────────────────────────────────
+
+  // Call 1: Family Member
+  try {
+    const familyCall = await makeEmergencyCall({
+      to: ALERT_FAMILY.call,
+      label: ALERT_FAMILY.label,
+      gasValue,
+      message: [
+        'Emergency Alert! Fire or gas leak detected at your smart home.',
+        `Address: ${ALERT_ADDRESS}.`,
+        `Gas level is ${gasValue}, which exceeds the safe threshold of ${FIRE_THRESHOLD}.`,
+        'Please evacuate immediately and contact emergency services.',
+        'The fire extinguisher office has also been notified and dispatched.',
+        'This is an automated alert from your Smart Home Fire Alert System.',
+      ].join(' '),
+    });
+    results.calls.push(familyCall);
+  } catch (err) {
+    console.error(`  ❌ Call to Family failed: ${err.message}`);
+    results.calls.push({ number: ALERT_FAMILY.call, status: 'failed', error: err.message });
   }
+
+  // Call 2: Fire Extinguisher Office
+  try {
+    const fireOfficeCall = await makeEmergencyCall({
+      to: ALERT_FIRE_OFFICE.call,
+      label: ALERT_FIRE_OFFICE.label,
+      gasValue,
+      message: [
+        'Urgent! This is an automated emergency dispatch from a Smart Home Fire Alert System.',
+        'A fire or gas leak has been detected and requires immediate response.',
+        `Location: ${ALERT_ADDRESS}.`,
+        `Gas sensor reading: ${gasValue}. This exceeds the critical threshold of ${FIRE_THRESHOLD}.`,
+        'Please dispatch a fire extinguisher team to the above address immediately.',
+        'The house owner has been notified and is evacuating.',
+        'Please respond to this emergency as soon as possible. Thank you.',
+      ].join(' '),
+    });
+    results.calls.push(fireOfficeCall);
+  } catch (err) {
+    console.error(`  ❌ Call to Fire Office failed: ${err.message}`);
+    results.calls.push({ number: ALERT_FIRE_OFFICE.call, status: 'failed', error: err.message });
+  }
+
+  // ── 2. WHATSAPP MESSAGES ──────────────────────────────────────────────
+
+  // WhatsApp 1: Family Member
+  try {
+    const familyWA = await sendWhatsAppMessage({
+      to: ALERT_FAMILY.whatsapp,
+      label: ALERT_FAMILY.label,
+      body: [
+        '🚨 *EMERGENCY ALERT* 🚨',
+        '',
+        '🔥 *FIRE / GAS DETECTED!*',
+        '',
+        `📍 *Address:* ${ALERT_ADDRESS}`,
+        `📊 *Gas Level:* ${gasValue} ADC (threshold: ${FIRE_THRESHOLD})`,
+        `⏱️ *Time:* ${timeStr}`,
+        '',
+        '⚠️ *IMMEDIATE ACTION REQUIRED!*',
+        '🚒 Evacuate the premises immediately!',
+        '📞 Emergency call has been placed to you.',
+        '🧯 Fire extinguisher office has been dispatched.',
+        '🔥 Check the IoT Dashboard for live status.',
+        '',
+        '_— Smart Home Fire Alert System_',
+      ].join('\n'),
+    });
+    results.whatsapp.push(familyWA);
+  } catch (err) {
+    console.error(`  ❌ WhatsApp to Family failed: ${err.message}`);
+    results.whatsapp.push({ number: ALERT_FAMILY.whatsapp, status: 'failed', error: err.message });
+  }
+
+  // WhatsApp 2: Fire Extinguisher Office
+  try {
+    const fireOfficeWA = await sendWhatsAppMessage({
+      to: ALERT_FIRE_OFFICE.whatsapp,
+      label: ALERT_FIRE_OFFICE.label,
+      body: [
+        '🚨🔥 *FIRE EMERGENCY — IMMEDIATE DISPATCH REQUIRED* 🔥🚨',
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '📋 *INCIDENT REPORT*',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        `🔴 *Type:* Fire / Hazardous Gas Leak`,
+        `🏠 *Building:* Residential Apartment`,
+        `📊 *Severity:* CRITICAL — Gas Level ${gasValue} ADC (safe limit: ${FIRE_THRESHOLD})`,
+        `⏱️ *Detected:* ${timeStr}`,
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '📍 *INCIDENT LOCATION*',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        `🏢 ${ALERT_ADDRESS}`,
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '🚒 *ACTION REQUIRED*',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        '1️⃣ Dispatch fire extinguisher team to above address *IMMEDIATELY*',
+        '2️⃣ Carry fire extinguishing equipment (CO₂ / Dry Chemical)',
+        '3️⃣ Gas leak detected — carry gas masks and ventilation equipment',
+        '4️⃣ Building occupants have been alerted and are evacuating',
+        '',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '👤 *OWNER / CONTACT DETAILS*',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        '',
+        `📞 *Owner Phone:* ${ALERT_FAMILY.call}`,
+        `📱 *Owner WhatsApp:* ${ALERT_FAMILY.call}`,
+        '✅ Owner has been notified via Call, SMS & WhatsApp',
+        '',
+        '⚠️ _This is an automated emergency dispatch generated by an IoT-based Smart Home Fire Detection System. Sensor data is real-time and verified._',
+        '',
+        '_— Smart Home IoT Fire Alert System_',
+      ].join('\n'),
+    });
+    results.whatsapp.push(fireOfficeWA);
+  } catch (err) {
+    console.error(`  ❌ WhatsApp to Fire Office failed: ${err.message}`);
+    results.whatsapp.push({ number: ALERT_FIRE_OFFICE.whatsapp, status: 'failed', error: err.message });
+  }
+
+  // ── 3. SMS MESSAGES ───────────────────────────────────────────────────
+
+  // SMS 1: Family Member
+  try {
+    const familySMS = await sendSMSMessage({
+      to: ALERT_FAMILY.sms,
+      label: ALERT_FAMILY.label,
+      body: `🚨 FIRE ALERT! Gas leak detected at ${ALERT_ADDRESS}. Gas level: ${gasValue} (threshold: ${FIRE_THRESHOLD}). Time: ${timeStr}. EVACUATE IMMEDIATELY! Fire office dispatched. — Smart Home Alert`,
+    });
+    results.sms.push(familySMS);
+  } catch (err) {
+    console.error(`  ❌ SMS to Family failed: ${err.message}`);
+    results.sms.push({ number: ALERT_FAMILY.sms, status: 'failed', error: err.message });
+  }
+
+  // SMS 2: Fire Extinguisher Office
+  try {
+    const fireOfficeSMS = await sendSMSMessage({
+      to: ALERT_FIRE_OFFICE.sms,
+      label: ALERT_FIRE_OFFICE.label,
+      body: `🚨 FIRE DISPATCH REQUEST! Fire/gas detected at ${ALERT_ADDRESS}. Gas: ${gasValue} ADC (threshold: ${FIRE_THRESHOLD}). Time: ${timeStr}. Dispatch fire team ASAP. Owner: ${ALERT_FAMILY.call}. — Smart Home IoT Alert`,
+    });
+    results.sms.push(fireOfficeSMS);
+  } catch (err) {
+    console.error(`  ❌ SMS to Fire Office failed: ${err.message}`);
+    results.sms.push({ number: ALERT_FIRE_OFFICE.sms, status: 'failed', error: err.message });
+  }
+
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`🚨 Emergency Alert Summary:`);
+  console.log(`   📞 Calls:    ${results.calls.filter(r => r.status !== 'failed').length}/${results.calls.length} sent`);
+  console.log(`   📱 WhatsApp: ${results.whatsapp.filter(r => r.status !== 'failed').length}/${results.whatsapp.length} sent`);
+  console.log(`   💬 SMS:      ${results.sms.filter(r => r.status !== 'failed').length}/${results.sms.length} sent`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
   return results;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: Make a single emergency phone call
+// ─────────────────────────────────────────────────────────────────────────────
+async function makeEmergencyCall({ to, label, gasValue, message }) {
+  const twiml = [
+    '<Response>',
+    '  <Say voice="alice" language="en-IN" loop="3">',
+    `    ${message}`,
+    '  </Say>',
+    '</Response>',
+  ].join('\n');
+
+  const call = await twilioClient.calls.create({
+    twiml,
+    to,
+    from: TWILIO_PHONE_FROM,
+  });
+
+  console.log(`  📞 Call to ${label} (${to}) → SID: ${call.sid}`);
+  return { number: to, label, status: 'called', sid: call.sid };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: Send a single WhatsApp message
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendWhatsAppMessage({ to, label, body }) {
+  const msg = await twilioClient.messages.create({
+    body,
+    from: TWILIO_WHATSAPP_FROM.startsWith('whatsapp:')
+      ? TWILIO_WHATSAPP_FROM
+      : `whatsapp:${TWILIO_WHATSAPP_FROM}`,
+    to: to.startsWith('whatsapp:') ? to : `whatsapp:${to}`,
+  });
+
+  console.log(`  📱 WhatsApp to ${label} (${to}) → SID: ${msg.sid}`);
+  return { number: to, label, status: 'sent', sid: msg.sid };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPER: Send a single SMS message
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendSMSMessage({ to, label, body }) {
+  const msg = await twilioClient.messages.create({
+    body,
+    from: TWILIO_PHONE_FROM,
+    to,
+  });
+
+  console.log(`  💬 SMS to ${label} (${to}) → SID: ${msg.sid}`);
+  return { number: to, label, status: 'sent', sid: msg.sid };
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // START SERVER
 // ─────────────────────────────────────────────────────────────────────────────
 (async () => {
   console.log('🔄 Starting server initialization...');
+
+  // ── Connect to MongoDB ──────────────────────────────────────────────────
+  if (process.env.MONGODB_URI) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('✅ MongoDB connected:', mongoose.connection.name);
+    } catch (err) {
+      console.warn('⚠️  MongoDB connection failed:', err.message);
+      console.warn('   → Energy logging and auth will be unavailable');
+    }
+  } else {
+    console.warn('⚠️  MONGODB_URI not set → auth & energy logging disabled');
+  }
+
   // Initialize database if Firebase is connected
   if (db) {
     console.log('📍 Database object exists, initializing...');
     await initializeDatabase();
+
+    // Reset controls to safe defaults on every server startup
+    // (Light OFF, Motor OFF, Door CLOSED, Pump AUTO)
+    const defaultControls = {
+      relay1: 'OFF',
+      relay2Mode: 'AUTO',
+      motor: 'OFF',
+      door: 'CLOSED',
+    };
+    try {
+      await db.ref('controls').set(defaultControls);
+      latestControls = { ...defaultControls };
+      console.log('🔄 Controls reset to defaults: Light OFF, Motor OFF, Door CLOSED');
+    } catch (err) {
+      console.warn('⚠️  Could not reset controls:', err.message);
+    }
+
     // Set up real-time listening for control changes
     listenToControlsFromFirebase();
     console.log('🔊 Listening for real-time control changes from Firebase');
@@ -503,6 +843,7 @@ async function sendWhatsAppAlerts(gasValue) {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
+    const mongoStatus = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'Not configured';
     console.log('\n🏠 Smart Home IoT Backend');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`🌐 Server:       http://localhost:${PORT}`);
@@ -514,6 +855,10 @@ async function sendWhatsAppAlerts(gasValue) {
       `🔄 Poll cmds:    GET  /commands           ← ESP-01 can poll here`
     );
     console.log(`📱 WhatsApp:     POST /send-whatsapp`);
+    console.log(`📞 Call:         POST /send-call`);
+    console.log(`🔐 Auth:         POST /api/auth/signup, /api/auth/login`);
+    console.log(`⚡ Energy:       GET  /api/energy/hourly, /daily, /summary`);
+    console.log(`🚨 Alerts DB:    GET  /api/alerts/history, /stats`);
     console.log(`💚 Health:       GET  /status`);
     console.log(`📋 Alerts:       GET  /alerts`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -521,12 +866,18 @@ async function sendWhatsAppAlerts(gasValue) {
       `🔥 Firebase:  ${db ? 'CONNECTED' : 'Not configured (simulation mode)'}`
     );
     console.log(
+      `🍃 MongoDB:   ${mongoStatus}`
+    );
+    console.log(
       `📱 Twilio:    ${twilioClient ? 'CONNECTED' : 'Not configured'}`
     );
     console.log(
-      `🌡️  Thresholds: Gas>${FIRE_THRESHOLD} | Tank empty>${TANK_EMPTY_CM}cm | Tank full<${TANK_FULL_CM}cm`
+      `🌡️  Thresholds: Gas>${FIRE_THRESHOLD} | Tank empty≤${TANK_EMPTY_PERCENT}% | Tank full≥${TANK_FULL_PERCENT}%`
     );
-    console.log(`👥 Alert numbers: ${ALERT_NUMBERS.join(', ')}`);
+    console.log(`👨‍👩‍👧 Family:       Call ${ALERT_FAMILY.call} | WA ${ALERT_FAMILY.whatsapp} | SMS ${ALERT_FAMILY.sms}`);
+    console.log(`🧯 Fire Office:  Call ${ALERT_FIRE_OFFICE.call} | WA ${ALERT_FIRE_OFFICE.whatsapp} | SMS ${ALERT_FIRE_OFFICE.sms}`);
+    console.log(`📍 Alert address: ${ALERT_ADDRESS}`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   });
 })();
+

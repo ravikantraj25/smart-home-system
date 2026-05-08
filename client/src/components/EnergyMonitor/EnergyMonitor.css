@@ -1,0 +1,116 @@
+/* Energy Monitor Component Styles */
+
+.energy-monitor-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.energy-header {
+  @apply flex items-center justify-between mb-3;
+}
+
+.energy-title-group {
+  @apply flex items-center gap-3;
+}
+
+.energy-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+  background: rgba(168, 85, 247, 0.12);
+}
+
+.energy-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.energy-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.energy-current-display {
+  @apply text-right;
+}
+
+.energy-current-value {
+  @apply text-xl font-bold font-mono text-neon-purple;
+}
+
+.energy-current-unit {
+  @apply text-xs text-gray-500 ml-1;
+}
+
+/* Chart */
+.energy-chart {
+  @apply h-36 -mx-1 mb-3;
+}
+
+/* Stats */
+.energy-stats {
+  @apply grid grid-cols-3 gap-2;
+}
+
+.stat-box {
+  @apply text-center p-2 rounded-lg;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stat-label {
+  @apply text-[10px] text-gray-500 mb-0.5;
+}
+
+.stat-value {
+  @apply text-xs font-bold font-mono;
+}
+
+/* Tooltip */
+.energy-tooltip {
+  background: rgba(15, 15, 26, 0.95);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.tooltip-label {
+  color: #6b7280;
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.tooltip-value {
+  color: #a855f7;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .energy-monitor-container {
+    @apply p-4;
+  }
+
+  .energy-chart {
+    @apply h-28;
+  }
+
+  .stat-box {
+    @apply p-1.5;
+  }
+
+  .stat-label {
+    @apply text-[9px];
+  }
+
+  .stat-value {
+    @apply text-[10px];
+  }
+}

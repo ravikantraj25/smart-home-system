@@ -1,0 +1,97 @@
+/* Door Control Component Styles */
+
+.door-control-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.door-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.door-title-group {
+  @apply flex items-center gap-3;
+}
+
+.door-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+}
+
+.door-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.door-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.door-status-badge {
+  @apply text-xs font-medium px-2.5 py-1 rounded-full;
+}
+
+/* Door Animation */
+.door-animation-container {
+  @apply flex justify-center mb-4;
+}
+
+.door-frame {
+  @apply relative rounded-lg;
+  width: 110px;
+  height: 80px;
+  perspective: 600px;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.door-panel {
+  @apply absolute inset-1.5 rounded-md flex items-center;
+}
+
+.door-handle {
+  @apply absolute right-2 w-2 h-5 rounded-full transition-all;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.door-panel-lines {
+  @apply absolute inset-x-3 top-2 bottom-2 flex flex-col justify-around;
+}
+
+.panel-line {
+  @apply h-px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Buttons */
+.door-buttons {
+  @apply flex gap-2;
+}
+
+.door-button {
+  @apply flex-1 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .door-control-container {
+    @apply p-4;
+  }
+
+  .door-frame {
+    width: 90px;
+    height: 65px;
+  }
+
+  .door-button {
+    @apply py-2 text-[11px];
+  }
+}

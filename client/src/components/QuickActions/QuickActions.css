@@ -1,0 +1,72 @@
+.quick-actions-card {
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  padding: 20px;
+  transition: all 0.25s ease;
+}
+.quick-actions-card:hover {
+  background: rgba(255, 255, 255, 0.085);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.qa-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.qa-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+.qa-subtitle {
+  font-size: 10px;
+  color: #6b7280;
+  margin: 1px 0 0 0;
+}
+
+.qa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.qa-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  background: var(--qa-bg);
+  border: 1px solid var(--qa-border);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  outline: none;
+}
+.qa-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+.qa-btn.active {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--qa-color) 20%, transparent);
+}
+
+.qa-btn-icon {
+  font-size: 22px;
+}
+.qa-btn-label {
+  font-size: 10px;
+  color: #d1d5db;
+  font-weight: 500;
+}
+.qa-btn-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}

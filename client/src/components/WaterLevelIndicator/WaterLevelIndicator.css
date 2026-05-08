@@ -1,0 +1,108 @@
+/* Water Level Indicator Component Styles */
+
+.water-level-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.water-header {
+  @apply flex items-center gap-3 mb-4;
+}
+
+.water-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+  background: rgba(0, 212, 255, 0.12);
+}
+
+.water-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.water-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.water-content {
+  @apply flex items-center gap-4;
+}
+
+/* Gauge */
+.water-gauge {
+  @apply relative shrink-0;
+}
+
+.water-gauge-svg {
+  @apply transform -rotate-90;
+}
+
+.water-gauge-center {
+  @apply absolute inset-0 flex flex-col items-center justify-center;
+}
+
+.water-percentage {
+  @apply text-2xl font-bold font-mono leading-none;
+}
+
+.water-distance {
+  @apply text-xs text-gray-500 font-mono mt-0.5;
+}
+
+/* Info section */
+.water-info {
+  @apply flex-1 min-w-0;
+}
+
+.water-info-content {
+  @apply space-y-3;
+}
+
+.water-info-label {
+  @apply text-xs text-gray-500 mb-1;
+}
+
+.water-progress-bg {
+  @apply w-full h-2 rounded-full overflow-hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.water-progress-fill {
+  @apply h-full rounded-full transition-all duration-1000;
+}
+
+.water-progress-labels {
+  @apply flex justify-between text-[10px] text-gray-600 mt-1;
+}
+
+.water-status-label {
+  @apply inline-flex px-3 py-1 rounded-full text-xs font-medium;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .water-level-container {
+    @apply p-4;
+  }
+
+  .water-gauge {
+    width: 120px;
+    height: 120px;
+  }
+
+  .water-percentage {
+    @apply text-xl;
+  }
+
+  .water-content {
+    @apply gap-3;
+  }
+}

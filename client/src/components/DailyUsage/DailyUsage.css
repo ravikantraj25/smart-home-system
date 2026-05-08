@@ -1,0 +1,119 @@
+.daily-usage-card {
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  padding: 20px;
+  transition: all 0.25s ease;
+}
+.daily-usage-card:hover {
+  background: rgba(255, 255, 255, 0.085);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+}
+
+.du-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.du-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.du-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+.du-subtitle {
+  font-size: 10px;
+  color: #6b7280;
+  margin: 1px 0 0 0;
+}
+.du-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #00ff88;
+  background: rgba(0, 255, 136, 0.08);
+  padding: 3px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  letter-spacing: 0.05em;
+}
+.du-live-dot {
+  width: 6px;
+  height: 6px;
+  background: #00ff88;
+  border-radius: 50%;
+}
+
+.du-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.du-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.du-stat:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.du-stat-icon {
+  font-size: 14px;
+}
+.du-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.du-stat-label {
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.du-chart {
+  margin-bottom: 10px;
+}
+.du-chart-label {
+  font-size: 10px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.du-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #4b5563;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+@media (max-width: 640px) {
+  .du-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

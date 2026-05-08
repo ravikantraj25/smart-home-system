@@ -1,0 +1,117 @@
+/* Motor Control Component Styles */
+
+.motor-control-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.motor-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.motor-title-group {
+  @apply flex items-center gap-3;
+}
+
+.motor-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+}
+
+.motor-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.motor-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.motor-status-badge {
+  @apply text-xs font-medium px-2.5 py-1 rounded-full;
+}
+
+/* Mode Section */
+.motor-mode-section {
+  @apply mb-4;
+}
+
+.motor-section-label {
+  @apply text-[11px] text-gray-500 font-medium mb-2 uppercase tracking-wide;
+}
+
+.mode-toggle-group {
+  @apply flex p-1 rounded-xl gap-1;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mode-button {
+  @apply flex-1 py-2 rounded-lg text-xs font-semibold transition-all relative cursor-pointer;
+}
+
+.mode-button-bg {
+  @apply absolute inset-0 rounded-lg;
+}
+
+.mode-button-text {
+  @apply relative z-10 transition-colors duration-200;
+  color: #6b7280;
+}
+
+.mode-button-text.active {
+  color: #ffffff;
+}
+
+/* Manual Section */
+.motor-manual-section {
+  @apply pt-4;
+}
+
+.motor-manual-section.disabled {
+  @apply opacity-30 pointer-events-none;
+}
+
+.motor-buttons {
+  @apply flex gap-2;
+}
+
+.motor-button {
+  @apply flex-1 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer;
+}
+
+.motor-button:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.motor-auto-note {
+  @apply text-[11px] text-neon-green/60 text-center mt-2;
+}
+
+/* Schedule Section */
+.motor-schedule-section {
+  @apply pt-4 mt-4 border-t border-gray-700/40;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .motor-control-container {
+    @apply p-4;
+  }
+
+  .mode-button {
+    @apply py-1.5 text-[10px];
+  }
+
+  .motor-button {
+    @apply py-2 text-[10px];
+  }
+}

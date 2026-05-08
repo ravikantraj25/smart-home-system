@@ -1,0 +1,110 @@
+/* Air Quality Status Component Styles */
+
+.air-quality-container {
+  @apply p-5 relative overflow-hidden;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.air-quality-container.fire-alert {
+  @apply border-red-500/50;
+  box-shadow: 0 0 20px rgba(255, 68, 68, 0.3);
+}
+
+.alert-glow {
+  @apply absolute inset-0 pointer-events-none;
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 0, 0, 0.08) 0%,
+    transparent 70%
+  );
+}
+
+/* Header Section */
+.air-quality-header {
+  @apply flex items-center gap-3 mb-4 relative z-10;
+}
+
+.status-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+}
+
+.status-icon span {
+  @apply text-base;
+}
+
+.header-text {
+  @apply flex-1 min-w-0;
+}
+
+.header-text h2 {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.header-text p {
+  @apply text-xs text-gray-500;
+}
+
+.status-badge {
+  @apply shrink-0 px-2.5 py-1 rounded-full text-[11px] font-semibold;
+}
+
+/* Value Display */
+.air-quality-value {
+  @apply relative z-10 flex items-baseline gap-2 mb-3;
+}
+
+.gas-value-display {
+  @apply text-4xl font-bold font-mono;
+  color: currentColor;
+}
+
+.value-unit {
+  @apply text-xs text-gray-500;
+}
+
+/* Status Description */
+.status-description {
+  @apply text-xs text-gray-400 mb-3 relative z-10;
+}
+
+/* Progress Bar */
+.progress-container {
+  @apply relative z-10;
+}
+
+.progress-labels {
+  @apply flex justify-between text-[10px] text-gray-500 mb-1.5;
+}
+
+.progress-bar-bg {
+  @apply h-2 bg-gray-700/50 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full rounded-full transition-all duration-500;
+}
+
+/* Loading State */
+.skeleton {
+  @apply bg-gray-700/40 animate-pulse;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .air-quality-container {
+    @apply p-4;
+  }
+
+  .gas-value-display {
+    @apply text-3xl;
+  }
+
+  .status-badge {
+    @apply text-[10px] px-2 py-0.5;
+  }
+}

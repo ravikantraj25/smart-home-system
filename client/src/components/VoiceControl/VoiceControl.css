@@ -1,0 +1,106 @@
+/* Voice Control Component Styles */
+
+.voice-control-container {
+  @apply p-5;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.voice-control-unsupported {
+  @apply p-5 flex items-center gap-3;
+  background: rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  transition: background 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+}
+
+.voice-unsupported-text {
+  @apply text-sm text-gray-400;
+}
+
+.voice-header {
+  @apply flex items-center gap-3 mb-4;
+}
+
+.voice-icon {
+  @apply w-9 h-9 rounded-lg flex items-center justify-center shrink-0;
+  background: rgba(0, 212, 255, 0.12);
+}
+
+.voice-title {
+  @apply text-sm font-semibold text-white leading-tight;
+}
+
+.voice-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.voice-content {
+  @apply flex items-center gap-4 mb-4;
+}
+
+.voice-mic-button {
+  @apply w-16 h-16 rounded-full flex items-center justify-center shrink-0 cursor-pointer transition-all;
+}
+
+.voice-transcript-area {
+  @apply flex-1 min-w-0;
+}
+
+.voice-status {
+  @apply text-xs mb-2;
+}
+
+.voice-transcript-text {
+  @apply text-xs text-white font-medium truncate;
+}
+
+.voice-commands-list {
+  @apply space-y-0.5;
+}
+
+.voice-command-item {
+  @apply text-[10px] text-gray-600 font-mono truncate;
+}
+
+/* Feedback */
+.voice-feedback {
+  @apply px-3 py-2 rounded-lg text-xs font-medium text-center;
+}
+
+.voice-feedback.success {
+  background: rgba(0, 255, 136, 0.08);
+  color: #00ff88;
+  border: 1px solid rgba(0, 255, 136, 0.2);
+}
+
+.voice-feedback.warning {
+  background: rgba(251, 191, 36, 0.08);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .voice-control-container {
+    @apply p-4;
+  }
+
+  .voice-mic-button {
+    @apply w-14 h-14;
+  }
+
+  .voice-transcript-text {
+    @apply text-[11px];
+  }
+
+  .voice-command-item {
+    @apply text-[9px];
+  }
+}
