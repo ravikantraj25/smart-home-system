@@ -33,9 +33,9 @@ const int btRxPin = 12; // Arduino RX ← HC-05 TX
 const int gasPin = A0;
 const int currentPin = A1;
 
-// ================= SERVER (Cloud - Render) =================
-const char *SERVER_HOST = "smart-home-system-5jfa.onrender.com";
-const int SERVER_PORT = 443; // HTTPS/SSL
+// ================= SERVER (AWS EC2 — plain HTTP, no SSL needed) =================
+const char *SERVER_HOST = "18.212.118.67";
+const int SERVER_PORT = 80;
 
 // ================= WIFI CREDENTIALS =================
 const char *WIFI_SSID = "Aryan PG 1st F";
@@ -534,13 +534,13 @@ void sendDataToServer() {
   delay(300);
   flushESP();
 
-  // Open SSL connection (HTTPS required for Render)
-  snprintf(atCmd, sizeof(atCmd), "AT+CIPSTART=\"SSL\",\"%s\",%d", SERVER_HOST,
+  // Open TCP connection (plain HTTP to EC2)
+  snprintf(atCmd, sizeof(atCmd), "AT+CIPSTART=\"TCP\",\"%s\",%d", SERVER_HOST,
            SERVER_PORT);
   espSerial.println(atCmd);
 
-  if (!waitForResponse("OK", 10000)) { // SSL handshake takes longer
-    dbg(F("SSL connect failed."));
+  if (!waitForResponse("OK", 5000)) {
+    dbg(F("TCP connect failed."));
     listenESP();
     espSerial.println(F("AT+CIPCLOSE"));
     delay(200);

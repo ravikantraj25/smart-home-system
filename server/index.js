@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const admin = require('firebase-admin');
 const twilio = require('twilio');
 const mongoose = require('mongoose');
@@ -153,6 +154,14 @@ app.use(express.urlencoded({ extended: true })); // ← fallback for form-encode
 app.use('/api/auth', authRoutes);
 app.use('/api/energy', energyRoutes);
 app.use('/api/alerts', alertRoutes);
+
+// ─── Serve Frontend (static files from client/dist) ─────────────────────────
+const clientDist = path.join(__dirname, '..', 'client', 'dist');
+app.use(express.static(clientDist));
+// SPA fallback: any route not matched by API → serve index.html
+app.get(/^(?!\/api|\/sensor-data|\/commands|\/send-whatsapp|\/send-call|\/alerts|\/status)/, (req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Initialize Firebase database with default structure

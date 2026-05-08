@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import './EnergyAnalytics.css';
 
-const API_BASE = 'http://18.212.118.67';
+const API_BASE = '';
 
 export default function EnergyAnalytics() {
   const [summary, setSummary] = useState(null);
