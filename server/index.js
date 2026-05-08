@@ -135,7 +135,17 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.disable('x-powered-by');  // Remove X-Powered-By header (saves bytes for Arduino)
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://smart-home-automation-b184d.web.app',
+    'https://smart-home-automation-b184d.firebaseapp.com',
+    'http://localhost:5173',
+    'http://localhost:5174',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // ← fallback for form-encoded data
 
