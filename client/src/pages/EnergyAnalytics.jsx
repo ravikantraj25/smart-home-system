@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import './EnergyAnalytics.css';
 
-const API_BASE = 'http://localhost:3001';
+const API_BASE = 'https://smart-home-system-fijq.onrender.com';
 
 export default function EnergyAnalytics() {
   const [summary, setSummary] = useState(null);

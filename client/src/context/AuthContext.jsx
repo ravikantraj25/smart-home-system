@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext(null);
-const API_BASE = 'http://localhost:3001';
+const API_BASE = 'https://smart-home-system-fijq.onrender.com';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
